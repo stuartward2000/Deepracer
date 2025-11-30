@@ -1,0 +1,13 @@
+name: deepracer
+channels:
+    - anaconda
+    - conda-forge
+    - pytorch
+    - defaults
+dependencies:
+    - conda-build
+    - python=3.12
+    - pip
+    - pip:
+        - -r requirements.txt
+        - -e packages/.

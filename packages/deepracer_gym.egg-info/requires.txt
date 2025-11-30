@@ -1,0 +1,7 @@
+numpy
+matplotlib
+gymnasium
+pyzmq
+msgpack
+msgpack_numpy
+loguru

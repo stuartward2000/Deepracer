@@ -1,0 +1,16 @@
+{
+    "action_space": {
+        "steering_angle": {
+            "high": 30,
+            "low": -30
+        },
+        "speed": {
+            "high": 2,
+            "low": 1
+        }
+    },
+    "action_space_type": "continuous",
+    "sensor": ["STEREO_CAMERAS", "LIDAR"],
+    "neural_network": "DEEP_CONVOLUTIONAL_NETWORK_SHALLOW",
+    "version": "4"
+}

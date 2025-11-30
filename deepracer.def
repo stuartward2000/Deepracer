@@ -1,0 +1,74 @@
+Bootstrap: localimage
+From: deepracer_base.sif
+
+# Bootstrap: docker
+# From: uzairakbar/deepracer:v0
+
+%files
+    ./patches/* /patches/
+
+%post
+    # install yq
+    wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+    chmod +x /usr/bin/yq
+
+    # fix broken path for sensors
+    file1_path='/opt/amazon/markov/camera_utils.py'
+    file2_path='/opt/amazon/install/sagemaker_rl_agent/lib/python3.6/site-packages/markov/camera_utils.py'
+    pattern='model_name="/{}/{}"'
+    replace='model_name="{}/{}"'
+    sed -i -e "s|$pattern|$replace|g" "$file1_path" "$file2_path"
+    
+    file1_path='/opt/amazon/markov/camera_utils.py'
+    file2_path='/opt/amazon/install/sagemaker_rl_agent/lib/python3.6/site-packages/markov/camera_utils.py'
+    pattern='model_name="/{}".format("sub_camera")'
+    replace='model_name="{}".format("sub_camera")'
+    sed -i -e "s|$pattern|$replace|g" "$file1_path" "$file2_path"
+
+    # patch environment response (`info` dictionary for `env.step()`)
+    file_path='/opt/amazon/install/sagemaker_rl_agent/lib/python3.6/site-packages/markov/multi_agent_coach/multi_agent_level_manager.py'
+    patch='/patches/environment_response.py'
+    cat "$patch" "$file_path" > temp && mv temp "$file_path"
+    file_path='/opt/amazon/install/sagemaker_rl_agent/lib/python3.6/site-packages/markov/multi_agent_coach/multi_agent_level_manager.py'
+    pattern="agent.observe(env_response)"
+    replace="agent.observe(response(agent, self.environment, env_response))"
+    sed -i -e "s|$pattern|$replace|g" "$file_path"
+
+    # turn off kinesis video stream
+    file_path='/opt/amazon/src/deepracer_simulation_environment/scripts/download_params_and_roslaunch_agent.py'
+    pattern='"publish_to_kinesis_stream:={} ".format(not yaml_file.is_leaderboard_job)'
+    replace='"publish_to_kinesis_stream:=false "'
+    sed -i -e "s|$pattern|$replace|g" "$file_path"
+    file_path='/opt/amazon/install/deepracer_simulation_environment/lib/deepracer_simulation_environment/download_params_and_roslaunch_agent.py'
+    pattern='"publish_to_kinesis_stream:={} ".format(not yaml_file.is_leaderboard_job)'
+    replace='"publish_to_kinesis_stream:=false "'
+    sed -i -e "s|$pattern|$replace|g" "$file_path"
+    
+    file_path='/opt/amazon/install/deepracer_simulation_environment/share/deepracer_simulation_environment/launch/rollout_rl_agent.launch'
+    pattern='name="publish_to_kinesis_stream" default="true"'
+    replace='name="publish_to_kinesis_stream" default="false"'
+    sed -i -e "s|$pattern|$replace|g" "$file_path"
+    
+    file_path='/opt/amazon/install/deepracer_simulation_environment/share/deepracer_simulation_environment/launch/rollout_rl_agent.launch'
+    pattern='name="publish_to_kinesis_stream" value="$(arg publish_to_kinesis_stream)"'
+    replace='name="publish_to_kinesis_stream" value="false"'
+    sed -i -e "s|$pattern|$replace|g" "$file_path"
+
+    # patch gym agent
+    mv -f /patches/gym_agent.py \
+        /opt/amazon/install/sagemaker_rl_agent/lib/python3.6/site-packages/markov/
+
+    # use customized launch script
+    mv -f /patches/launch-simapp-rosnodes.sh /opt/ml/code/
+    chmod +x /opt/ml/code/launch-simapp-rosnodes.sh
+
+    # in case display is needed for kinesis
+    mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
+
+
+%environment
+    export LC_ALL=C
+    
+%runscript
+    cd /opt/ml/code/
+    exec /bin/bash /opt/ml/code/entrypoint.sh "$@"
